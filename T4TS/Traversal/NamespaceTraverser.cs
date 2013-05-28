@@ -28,7 +28,20 @@ namespace T4TS
         private void Traverse(CodeElements members)
         {
             foreach (var codeClass in members.OfType<CodeClass>())
-                WithCodeClass(codeClass);
+                Traverse(codeClass);
+        }
+
+        /// <summary>
+        /// Traverse recursively to the baseclasses first, as they are likely to contain types used elsewhere. Kludge: there is some unnecessary recurring traverses of same base-classes here.
+        /// </summary>
+        /// <param name="codeClass"></param>
+        private void Traverse(CodeClass codeClass)
+        {
+            foreach (var memberCodeClass in codeClass.Bases.OfType<CodeClass>())
+            {
+                Traverse(memberCodeClass);
+            }
+            WithCodeClass(codeClass);
         }
     }
 }

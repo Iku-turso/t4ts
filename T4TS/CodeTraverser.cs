@@ -41,14 +41,29 @@ namespace T4TS
                     if (!TryGetAttribute(codeClass.Attributes, InterfaceAttributeFullName, out attribute))
                         return;
 
-                    var values = GetInterfaceValues(codeClass, attribute);
-                    var customType = new CustomType(GetInterfaceName(values), values.Module);
-
-                    typeContext.AddCustomType(codeClass.FullName, customType);
+                    BuildCustomType(codeClass, attribute, typeContext);
                 });
             });
 
             return typeContext;
+        }
+
+        private void BuildCustomType(
+            CodeClass codeClass,
+            CodeAttribute originalTypeScriptInterfaceAttribute,
+            TypeContext typeContext
+        ) {
+            foreach(CodeClass baseClassCodeClass in codeClass.Bases)
+            {
+                BuildCustomType(baseClassCodeClass, originalTypeScriptInterfaceAttribute, typeContext);
+            }
+            var typeScriptInterfaceAttributeValues = GetInterfaceValues(codeClass, originalTypeScriptInterfaceAttribute);
+            // Make sure an overridden name from originalTypeScriptInterfaceAttribute never overrides the name of "baseClass-interface", ie. a codeClass without a TypeScriptInterfaceAttribute of it's own.
+            // typeScriptInterfaceAttributeValues.Name = codeClass.Name;
+            // typeScriptInterfaceAttributeValues.NamePrefix = Settings.DefaultInterfaceNamePrefix ?? string.Empty;
+
+            var customType = new CustomType(GetInterfaceName(typeScriptInterfaceAttributeValues), typeScriptInterfaceAttributeValues.Module);
+            typeContext.AddCustomType(codeClass.FullName, customType);
         }
 
         public IEnumerable<TypeScriptModule> GetAllInterfaces()
@@ -77,10 +92,7 @@ namespace T4TS
                         byModuleName.Add(values.Module, module);
                     }
 
-                    var tsInterface = BuildInterface(codeClass, values, typeContext);
-                    tsMap.Add(codeClass, tsInterface);
-                    tsInterface.Module = module;
-                    module.Interfaces.Add(tsInterface);
+                    BuildInterface(codeClass, typeContext, attribute, tsMap, module);
                 });
             });
 
@@ -88,8 +100,19 @@ namespace T4TS
             tsMap.Keys.ToList().ForEach(codeClass =>
             {
                 var parent = tsInterfaces.LastOrDefault(intf => codeClass.IsDerivedFrom[intf.FullName] && intf.FullName != codeClass.FullName);
-                if (parent != null)
-                    tsMap[codeClass].Parent = parent;
+                var tsInterfaceLackingParent = tsMap[codeClass];
+                if (
+                    parent != null 
+                    && (
+                        // Parent-classes marked specifically TypeScriptInterface -attribute can always be used as parent.
+                        !parent.IsIndirectlyMarkedInterface 
+                        // Only interfaces marked with CanExtendAllBaseClasses can extend BaseClassInterface.
+                        || tsInterfaceLackingParent.CanExtendAllBaseClasses
+                    )
+                )
+                {
+                    tsInterfaceLackingParent.Parent = parent;
+                }
             });
 
             return byModuleName.Values
@@ -105,13 +128,110 @@ namespace T4TS
             return attributeValues.Name;
         }
 
-        private TypeScriptInterface BuildInterface(CodeClass codeClass, TypeScriptInterfaceAttributeValues attributeValues, TypeContext typeContext)
+        /// <summary>
+        /// A recursively used method which builds interfaces out of CodeClasses *and* their base-class -CodeClasses 
+        /// (if instructed with [TypeScriptInterface(CreateTypeScriptInterfacesAlsoForBaseClasses = true)]).
+        /// </summary>
+        /// <param name="codeClass">The CodeClass for which to create a TypeScriptInterface.</param>
+        /// <param name="typeContext"></param>
+        /// <param name="originalTypeScriptInterfaceAttribute"></param>
+        /// <param name="tsMap">The tsMap in which the created TypeScriptInterface will be stored.</param>
+        /// <param name="module">The module in which the created TypeScriptInterface will be stored.</param>
+        /// <param name="indirectlyMarkedInterface">A marker to indicate that a CodeClass with [TypeScriptInterface(CreateTypeScriptInterfacesAlsoForBaseClasses = true)] has been hit somewhere in previous recursion.</param>
+        private void BuildInterface(
+            CodeClass codeClass, 
+            TypeContext typeContext, 
+            CodeAttribute originalTypeScriptInterfaceAttribute, 
+            Dictionary<CodeClass, TypeScriptInterface> tsMap, 
+            TypeScriptModule module,
+            bool indirectlyMarkedInterface = false
+        ) 
+        {
+            var interfaceAlreadyExists = tsMap.ContainsKey(codeClass) || tsMap.Keys.Any(x => x.FullName == codeClass.FullName); 
+            // There's no need to display the properties of System.Object, ie. the grand-base-class of all classes.
+            var codeClassIsIrrelevant = codeClass.FullName == typeof(Object).FullName;
+            if(interfaceAlreadyExists || codeClassIsIrrelevant)
+            {
+                return;
+            }
+
+            CodeAttribute specificTypeScriptInterfaceAttribute;
+            var directlyMarkedInterface = TryGetAttribute(
+                codeClass.Attributes, 
+                InterfaceAttributeFullName, 
+                out specificTypeScriptInterfaceAttribute
+            );
+
+            TypeScriptInterfaceAttributeValues typeScriptInterfaceAttributeValues;
+            if (directlyMarkedInterface)
+            {
+                typeScriptInterfaceAttributeValues = GetInterfaceValues(codeClass, specificTypeScriptInterfaceAttribute);
+                // This will set all the baseClasses of this class to be indirectlyMarked.
+                indirectlyMarkedInterface = 
+                    indirectlyMarkedInterface 
+                    || typeScriptInterfaceAttributeValues.CreateTypeScriptInterfacesAlsoForBaseClasses;
+            }
+            else
+            {
+                // If no specific attribute was available, use the originalTypeScriptInterfaceAttribute as source for typeScriptInterfaceAttributeValues.
+                typeScriptInterfaceAttributeValues = GetInterfaceValues(codeClass, originalTypeScriptInterfaceAttribute);
+                // Make sure an overridden name from originalTypeScriptInterfaceAttribute never overrides the name of "baseClass-interface", ie. a codeClass without a TypeScriptInterfaceAttribute of it's own.
+                typeScriptInterfaceAttributeValues.Name = codeClass.Name;
+                typeScriptInterfaceAttributeValues.NamePrefix = Settings.DefaultInterfaceNamePrefix ?? string.Empty;
+            }
+            
+            // Only indirectlyMarkedInterfaces build also their base-class -interfaces.
+            if(indirectlyMarkedInterface) 
+            {
+                // First, create interfaces for the baseCodeClasses.
+                foreach(CodeClass baseClassCodeClass in codeClass.Bases)
+                {
+                    BuildInterface(
+                        baseClassCodeClass, 
+                        typeContext, 
+                        originalTypeScriptInterfaceAttribute, 
+                        tsMap, 
+                        module, 
+                        true
+                    );
+                }
+            }
+            
+            // Second, create interfaces for the CodeClass itself.
+            var tsInterface = BuildInterface(
+                codeClass, 
+                typeScriptInterfaceAttributeValues, 
+                typeContext, 
+                directlyMarkedInterface,
+                indirectlyMarkedInterface
+            );
+
+            tsMap.Add(codeClass, tsInterface);
+            tsInterface.Module = module;
+            module.Interfaces.Add(tsInterface);
+        }
+
+        private TypeScriptInterface BuildInterface(
+            CodeClass codeClass,
+            TypeScriptInterfaceAttributeValues attributeValues,
+            TypeContext typeContext,
+            bool directlyMarkedInterface,
+            bool indirectlyMarkedInterface
+        )
         {
             var tsInterface = new TypeScriptInterface
             {
                 FullName = codeClass.FullName,
-                Name = GetInterfaceName(attributeValues)
+                Name = GetInterfaceName(attributeValues),
+                IsIndirectlyMarkedInterface = indirectlyMarkedInterface,
+                IsDirectlyMarkedInterface = directlyMarkedInterface
             };
+            try {
+                tsInterface.DocComment = codeClass.DocComment;
+            }
+            catch(Exception exception) {
+                tsInterface.DocComment = "Error resolving CodeClass.DocComment.";
+            }
 
             TypescriptType indexedType;
             if (TryGetIndexedType(codeClass, typeContext, out indexedType))
@@ -168,7 +288,11 @@ namespace T4TS
             {
                 Name = values.ContainsKey("Name") ? values["Name"] : codeClass.Name,
                 Module = values.ContainsKey("Module") ? values["Module"] : Settings.DefaultModule ?? "T4TS",
-                NamePrefix = values.ContainsKey("NamePrefix") ? values["NamePrefix"] : Settings.DefaultInterfaceNamePrefix ?? string.Empty
+                NamePrefix = values.ContainsKey("NamePrefix") ? values["NamePrefix"] : Settings.DefaultInterfaceNamePrefix ?? string.Empty,
+                CreateTypeScriptInterfacesAlsoForBaseClasses = 
+                    values.ContainsKey("CreateTypeScriptInterfacesAlsoForBaseClasses") ?
+                    bool.Parse(values["CreateTypeScriptInterfacesAlsoForBaseClasses"]) :
+                    Settings.DefaultCreateTypeScriptInterfacesAlsoForBaseClasses
             };
         }
 

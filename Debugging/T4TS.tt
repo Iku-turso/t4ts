@@ -8,7 +8,7 @@
 <#@ import namespace="EnvDTE" #>
 <#@ import namespace="Microsoft.VisualStudio.Shell.Interop" #>
 <#@ import namespace="Microsoft.VisualStudio.TextTemplating" #>
-<#@ assembly name="$(SolutionDir)\\T4TS\\bin\\Debug\\T4TS.Dll" #>
+<#@ assembly name="C:\Work\LogisticsWEB\lib\T4TS\T4TS.dll" #>
 <#@ Include File="T4TS.tt.settings.t4" #>
 <#= 
     T4TS.OutputFormatter.GetOutput(GetDataToRender()) #><#+ 

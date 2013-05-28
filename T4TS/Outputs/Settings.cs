@@ -27,5 +27,12 @@ namespace T4TS
         /// The default string to prefix interface names with. For instance, you might want to prefix the names with an "I" to get conventional interface names.
         /// </summary>
         public string DefaultInterfaceNamePrefix { get; set; }
+
+        /// <summary>
+        /// If true, typescript interfaces will be created also for all the baseclasses of the class. 
+        /// The interfaces will be generated even if the baseclasses aren't decorated with the [TypeScriptInterface] -Attribute,
+        /// and even if the class is external to the project.
+        /// </summary>
+        public bool DefaultCreateTypeScriptInterfacesAlsoForBaseClasses { get; set; }
     }
 }

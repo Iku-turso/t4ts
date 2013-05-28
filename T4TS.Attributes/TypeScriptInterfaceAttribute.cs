@@ -24,5 +24,12 @@ namespace T4TS
         /// If specified, the interface name will be prefixed with this string.
         /// </summary>
         public string NamePrefix { get; set; }
+
+        /// <summary>
+        /// If true, typescript interfaces will be created also for all the baseclasses of the class. 
+        /// The interfaces will be generated even if the baseclasses aren't decorated with the [TypeScriptInterface] -Attribute,
+        /// and even if the class is external to the project.
+        /// </summary>
+        public bool CreateTypeScriptInterfacesAlsoForBaseClasses { get; set; }
     }
 }

@@ -4,7 +4,7 @@
 
 // -- Begin global interfaces
     /** Generated from T4TS.Example.Models.Barfoo */
-    interface Barfoo {
+    interface Barfoo extends Object {
         Number: number;
         Complex: T4TS.OverridenName;
         Name: string;
@@ -15,13 +15,13 @@
 
 module Fooz {
     /** Generated from T4TS.Example.Models.Foobar */
-    export interface IFoobar {
+    export interface IFoobar extends Object {
         OverrideAll?: bool;
         Recursive: Fooz.IFoobar;
         NullableInt?: number;
         NullableDouble?: number;
         NestedObjectArr: Barfoo[];
-        NestedObjectList: T4TS.OverridenName;
+        NestedObjectList: Barfoo[];
         TwoDimensions: string[][];
         ThreeDimensions: Barfoo[][][];
         camelCasePlease: number;
@@ -31,11 +31,18 @@ module Fooz {
 
 module T4TS {
     /**
+    Generated from System.Object
+    <summary>Supports all classes in the .NET Framework class hierarchy and provides low-level services to derived classes. This is the ultimate base class of all classes in the .NET Framework; it is the root of the type hierarchy.</summary>
+    */
+    interface Object {
+    }
+    
+    /**
     Generated from System.Attribute
     <summary>Represents the base class for custom attributes.</summary>
     */
-    interface Attribute {
-        TypeId: Object;
+    interface Attribute extends Object {
+        TypeId: any;
     }
     
     /**
@@ -57,14 +64,8 @@ module T4TS {
         Recursive4: Fooz.IFoobar;
     }
     
-    /** Generated from T4TS.Example.Models.CrossProjectInheritanceTest2 */
-    export interface CrossProjectInheritanceTest2 extends TypeScriptInterfaceAttribute {
-        SomeString4: string;
-        FooAttribute: T4TS.Attribute;
-    }
-    
     /** Generated from T4TS.Example.Models.InheritanceTest1 */
-    export interface InheritanceTest1 extends Barfoo {
+    export interface InheritanceTest1 extends Object {
         SomeString: string;
         Recursive: Fooz.IFoobar;
     }
@@ -75,15 +76,6 @@ module T4TS {
         Recursive2: Fooz.IFoobar;
     }
     
-    /** Generated from T4TS.Example.Models.Inherited */
-    export interface OverridenName {
-        OtherName?: string;
-        Integers: number[];
-        Doubles: number[];
-        TwoDimList: number[][];
-        [index: number]: Barfoo;
-    }
-    
     /** Generated from T4TS.Example.Models.InheritanceTest3 */
     export interface InheritanceTest3 extends T4TS.OverridenName {
         SomeString3: string;
@@ -91,9 +83,18 @@ module T4TS {
     }
     
     /** Generated from T4TS.Example.Models.InheritanceTest4 */
-    export interface InheritanceTest4 {
+    export interface InheritanceTest4 extends Object {
         SomeString4: string;
         Recursive4: Fooz.IFoobar;
+    }
+    
+    /** Generated from T4TS.Example.Models.Inherited */
+    export interface OverridenName extends Object {
+        OtherName?: string;
+        Integers: number[];
+        Doubles: number[];
+        TwoDimList: number[][];
+        [index: number]: Barfoo;
     }
     
 }

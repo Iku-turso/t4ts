@@ -24,7 +24,7 @@ namespace T4TS
 
         public void AddCustomType(string typeFullName, CustomType customType)
         {
-            customTypes.Add(typeFullName, customType);
+            if(!customTypes.ContainsKey(typeFullName)) customTypes.Add(typeFullName, customType);
         }
 
         public bool TryGetCustomType(string typeFullName, out CustomType customType)

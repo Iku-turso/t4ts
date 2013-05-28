@@ -35,6 +35,11 @@ namespace T4TS
             Output.AppendLine(line);
         }
 
+        protected void AppendMultipleLines(string lines)
+        {
+            AppendIndentedLine(lines.Replace(Environment.NewLine, Environment.NewLine + new string(' ', BaseIndentation)));
+        }
+
         protected void AppendIndendation()
         {
             Output.Append(' ', BaseIndentation);
